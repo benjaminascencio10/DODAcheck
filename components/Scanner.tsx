@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { parseQrContent, buildSatUrl, DodaResult, getNumeroIntegracion } from "@/lib/doda-parser";
 import { extraerCamposPdf, parseCamposTexto, type PdfCampos } from "@/lib/doda-pdf-campos";
 import { extraerTextoFoto } from "@/lib/ocr";
-import { getPdfjs } from "@/lib/pdfjs";
+import { decodeQrFromFile } from "@/lib/qrFromFile";
 import ResultCard, { SatData } from "./ResultCard";
 
 type ScanState = "idle" | "scanning" | "verifying" | "result" | "error";
@@ -164,33 +164,14 @@ export default function Scanner() {
       // es un callback ya creado en un render anterior: su clausura sobre el estado
       // `pdfCampos` quedaría desactualizada si dependiéramos de leerlo ahí adentro.
       let campos: PdfCampos | null = null;
+      const esPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
 
       try {
-        let scanableFile = file;
-        const esPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
-
         if (esPdf) {
-          // PDF → render page 1 to PNG for the QR scan + extract the printed fields
-          const pdfjsLib = await getPdfjs();
-          const arrayBuffer = await file.arrayBuffer();
-
           // Confrontación PDF impreso ↔ SAT (best-effort, nunca bloquea el escaneo)
-          campos = await extraerCamposPdf(arrayBuffer.slice(0));
+          const arrayBuffer = await file.arrayBuffer();
+          campos = await extraerCamposPdf(arrayBuffer);
           setPdfCampos(campos);
-
-          const pdf = await pdfjsLib.getDocument({ data: arrayBuffer.slice(0) }).promise;
-          const page = await pdf.getPage(1);
-          const viewport = page.getViewport({ scale: 2.5 }); // high-res for QR readability
-
-          const canvas = document.createElement("canvas");
-          canvas.width = viewport.width;
-          canvas.height = viewport.height;
-          await page.render({ canvas, viewport }).promise;
-
-          const blob = await new Promise<Blob>((res) =>
-            canvas.toBlob((b) => res(b!), "image/png")
-          );
-          scanableFile = new File([blob], "doda-page1.png", { type: "image/png" });
         } else {
           // Foto del documento impreso → OCR para el texto humano, igual
           // confrontación que un PDF (ver lib/ocr.ts). Best-effort: si el OCR
@@ -205,10 +186,7 @@ export default function Scanner() {
           }
         }
 
-        const { Html5Qrcode } = await import("html5-qrcode");
-        const scanner = new Html5Qrcode("qr-file-scanner-hidden");
-        const decoded = await scanner.scanFile(scanableFile, false);
-        await scanner.clear();
+        const decoded = await decodeQrFromFile(file);
         await handleScanSuccess(decoded, campos);
       } catch {
         setErrorMsg(

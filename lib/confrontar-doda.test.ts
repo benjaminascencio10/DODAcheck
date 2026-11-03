@@ -1,7 +1,7 @@
 // node --test lib/confrontar-doda.test.ts   (Node 22.6+ type stripping)
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { confrontarDoda, tieneCritico } from "./confrontar-doda.ts";
+import { confrontarDoda, tieneCritico, confrontarPedimento } from "./confrontar-doda.ts";
 
 type AnyResult = Parameters<typeof confrontarDoda>[0]["qr"];
 type AnySat = Parameters<typeof confrontarDoda>[0]["satData"];
@@ -218,4 +218,47 @@ test("QR solo-URL + PDF con campos: confronta el PDF contra el SAT", () => {
     },
   });
   assert.equal(d.some((x) => x.campo === "patente" && x.severidad === "critico"), true);
+});
+
+// ── confrontarPedimento() — QR del Pedimento vs el SAT del DODA ────────────
+// Valores reales de la captura que mandó el usuario: pa=3908, dn=6003325, pad=170
+// → pedimento reconstruido "170-3908-6003325".
+
+test("pedimento del QR coincide con el SAT → sin discrepancias", () => {
+  const d = confrontarPedimento({
+    pedimentoQr: { pad: "170", pa: "3908", dn: "6003325" },
+    satData: sat({ pedimento: "170-3908-6003325", aduana: "170" }),
+  });
+  assert.deepEqual(d, []);
+});
+
+test("pedimento del QR distinto al SAT → crítico", () => {
+  const d = confrontarPedimento({
+    pedimentoQr: { pad: "170", pa: "3908", dn: "6003325" },
+    satData: sat({ pedimento: "330-3414-6013156/1", aduana: "170" }),
+  });
+  assert.equal(d.some((x) => x.campo === "pedimento" && x.fuenteReferencia === "pedimento-qr" && x.severidad === "critico"), true);
+});
+
+test("aduana del QR distinta a la del SAT → crítico", () => {
+  const d = confrontarPedimento({
+    pedimentoQr: { pad: "170", pa: "3908", dn: "6003325" },
+    satData: sat({ pedimento: "170-3908-6003325", aduana: "330" }),
+  });
+  assert.equal(d.some((x) => x.campo === "seccionAduanera" && x.fuenteReferencia === "pedimento-qr"), true);
+});
+
+test("sin satData → sin discrepancias (nada que confrontar)", () => {
+  assert.deepEqual(
+    confrontarPedimento({ pedimentoQr: { pad: "170", pa: "3908", dn: "6003325" }, satData: null }),
+    []
+  );
+});
+
+test("satData.pedimento ausente → no inventa discrepancia (regla de oro)", () => {
+  const d = confrontarPedimento({
+    pedimentoQr: { pad: "170", pa: "3908", dn: "6003325" },
+    satData: sat({ pedimento: null, aduana: null }),
+  });
+  assert.deepEqual(d, []);
 });

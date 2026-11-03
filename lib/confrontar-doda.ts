@@ -31,8 +31,9 @@ export interface Discrepancia {
   valorDocumento: string;
   /** valor contra el que se comparó */
   valorReferencia: string;
-  /** de dónde salió `valorReferencia`: el SAT, el QR escaneado, o la cadena impresa */
-  fuenteReferencia: "sat" | "qr" | "cadena";
+  /** de dónde salió `valorReferencia`: el SAT, el QR escaneado, la cadena impresa,
+   *  o el QR de un Pedimento distinto confrontado contra este DODA */
+  fuenteReferencia: "sat" | "qr" | "cadena" | "pedimento-qr";
   severidad: Severidad;
 }
 
@@ -46,8 +47,9 @@ function normPatente(s: string | null | undefined): string {
   return d;
 }
 
-/** "330-3414-6013156/1" → "6013156" · "6013156" → "6013156" */
-function normPedimento(s: string | null | undefined): string {
+/** "330-3414-6013156/1" → "6013156" · "6013156" → "6013156"
+ *  Exportado: también lo usa confrontarPedimento() más abajo. */
+export function normPedimento(s: string | null | undefined): string {
   if (!s) return "";
   const sinRemesa = s.split("/")[0];
   const grupos = sinRemesa.match(/\d{6,7}/g);
@@ -57,8 +59,9 @@ function normPedimento(s: string | null | undefined): string {
 }
 
 /** código de aduana: exactamente 3 dígitos al inicio, seguidos de separador/nombre.
- *  Rechaza valores que sean parte de un número más largo (ej. el NI). */
-function normSeccion(s: string | null | undefined): string {
+ *  Rechaza valores que sean parte de un número más largo (ej. el NI).
+ *  Exportado: también lo usa confrontarPedimento() más abajo. */
+export function normSeccion(s: string | null | undefined): string {
   const m = (s ?? "").trim().match(/^(\d{3})(?:\D|$)/);
   return m ? m[1] : "";
 }
@@ -208,6 +211,58 @@ export function confrontarDoda({ qr, satData, pdfCampos }: Params): Discrepancia
       }
     }
   }
+}
+
+// ── Confronta cruzada: QR del Pedimento vs el SAT del DODA ──────────────────
+// Documento distinto al DODA, con su propio QR (ver lib/pedimento-parser.ts
+// y app/api/pedimento/route.ts). El pedimento se reconstruye desde la query
+// string YA VALIDADA de esa URL (pad-pa-dn), no desde el HTML — el HTML solo
+// trae el nombre de la aduana, no su clave de 3 dígitos.
+
+export interface PedimentoQrData {
+  pad: string; // clave de aduana (3 díg)
+  pa: string;  // patente
+  dn: string;  // documento / progresivo del pedimento
+}
+
+export function confrontarPedimento({
+  pedimentoQr,
+  satData,
+}: {
+  pedimentoQr: PedimentoQrData;
+  satData: SatData | null;
+}): Discrepancia[] {
+  const out: Discrepancia[] = [];
+  if (!satData || !satData.ok) return out;
+
+  const pedimentoReconstruido = `${pedimentoQr.pad}-${pedimentoQr.pa}-${pedimentoQr.dn}`;
+
+  // Regla de oro de este módulo: solo se reporta si AMBOS lados tienen valor.
+  const nSat = normPedimento(satData.pedimento);
+  const nQr = normPedimento(pedimentoReconstruido);
+  if (nSat && nQr && nSat !== nQr) {
+    out.push({
+      campo: "pedimento",
+      valorDocumento: pedimentoReconstruido,
+      valorReferencia: String(satData.pedimento).trim(),
+      fuenteReferencia: "pedimento-qr",
+      severidad: "critico",
+    });
+  }
+
+  const nSatAduana = normSeccion(satData.aduana);
+  const nQrAduana = normSeccion(pedimentoQr.pad);
+  if (nSatAduana && nQrAduana && nSatAduana !== nQrAduana) {
+    out.push({
+      campo: "seccionAduanera",
+      valorDocumento: pedimentoQr.pad,
+      valorReferencia: String(satData.aduana).trim(),
+      fuenteReferencia: "pedimento-qr",
+      severidad: "critico",
+    });
+  }
+
+  return out;
 }
 
 function dedupe(list: Discrepancia[]): Discrepancia[] {

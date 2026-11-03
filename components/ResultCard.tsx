@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { DodaResult, buildSatUrl, getNumeroIntegracion } from "@/lib/doda-parser";
 import { confrontarDoda, tieneCritico, type Discrepancia } from "@/lib/confrontar-doda";
 import type { PdfCampos } from "@/lib/doda-pdf-campos";
+import PedimentoCheck from "./PedimentoCheck";
 
 export interface SatData {
   ok: boolean;
@@ -62,6 +63,7 @@ const SOURCE_LABELS: Record<Discrepancia["fuenteReferencia"], string> = {
   sat: "SAT",
   qr: "QR",
   cadena: "Cadena original",
+  "pedimento-qr": "QR del Pedimento",
 };
 
 // ── Pedimento type detection ──────────────────────────────────────────────────
@@ -374,6 +376,9 @@ export default function ResultCard({ result, satData, pdfCampos, onScanAnother }
         )}
       </button>
 
+      {/* ── Verificar Pedimento (documento distinto, confronta cruzada) ── */}
+      {pedimento && <PedimentoCheck satData={satData} />}
+
       {/* ── QR raw (colapsado) ── */}
       <details>
         <summary className="cursor-pointer text-xs text-slate-400 hover:text-slate-600 transition-colors select-none px-1">
@@ -473,7 +478,7 @@ function ExpiryCell({ date, daysLeft, pedimentoType }: {
   );
 }
 
-function DiscrepancyAlert({ discrepancias, hayCritico }: {
+export function DiscrepancyAlert({ discrepancias, hayCritico }: {
   discrepancias: Discrepancia[];
   hayCritico: boolean;
 }) {
