@@ -86,14 +86,6 @@ export default function PedimentoCheck({ satData }: { satData: SatData | null })
 
   return (
     <div className="border border-slate-200 rounded-2xl px-5 py-4 space-y-3">
-      <div>
-        <p className="text-sm font-bold text-slate-800">Verificar Pedimento</p>
-        <p className="text-xs text-slate-500 mt-0.5">
-          Sube el PDF o una foto del Pedimento (documento distinto al DODA) para
-          confrontar su QR contra lo que ya se verificó.
-        </p>
-      </div>
-
       {step === "idle" && (
         <label className="block border-2 border-dashed border-slate-200 hover:border-slate-300 hover:bg-slate-50 rounded-xl px-4 py-5 text-center cursor-pointer transition-colors">
           <input type="file" accept="image/*,.pdf,application/pdf" className="hidden" onChange={handleFileChange} />

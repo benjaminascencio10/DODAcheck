@@ -4,7 +4,6 @@ import { useMemo, useState } from "react";
 import { DodaResult, buildSatUrl, getNumeroIntegracion } from "@/lib/doda-parser";
 import { confrontarDoda, tieneCritico, type Discrepancia } from "@/lib/confrontar-doda";
 import type { PdfCampos } from "@/lib/doda-pdf-campos";
-import PedimentoCheck from "./PedimentoCheck";
 
 export interface SatData {
   ok: boolean;
@@ -375,13 +374,6 @@ export default function ResultCard({ result, satData, pdfCampos, onScanAnother }
           <><ClipboardIcon className="w-4 h-4" /> Copiar datos para compartir</>
         )}
       </button>
-
-      {/* ── Verificar Pedimento (documento distinto, confronta cruzada) ──
-          Siempre disponible, aunque el DODA no traiga pedimento conocido o
-          el SAT no haya respondido — confrontarPedimento() ya maneja ambos
-          casos sin forzar una comparación (solo muestra los datos del
-          pedimento si no hay nada contra qué cruzarlos). */}
-      <PedimentoCheck satData={satData} />
 
       {/* ── QR raw (colapsado) ── */}
       <details>
