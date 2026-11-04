@@ -376,8 +376,12 @@ export default function ResultCard({ result, satData, pdfCampos, onScanAnother }
         )}
       </button>
 
-      {/* ── Verificar Pedimento (documento distinto, confronta cruzada) ── */}
-      {pedimento && <PedimentoCheck satData={satData} />}
+      {/* ── Verificar Pedimento (documento distinto, confronta cruzada) ──
+          Siempre disponible, aunque el DODA no traiga pedimento conocido o
+          el SAT no haya respondido — confrontarPedimento() ya maneja ambos
+          casos sin forzar una comparación (solo muestra los datos del
+          pedimento si no hay nada contra qué cruzarlos). */}
+      <PedimentoCheck satData={satData} />
 
       {/* ── QR raw (colapsado) ── */}
       <details>
