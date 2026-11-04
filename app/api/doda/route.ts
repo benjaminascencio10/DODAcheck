@@ -215,8 +215,19 @@ async function fetchViaSat(ni: string) {
         headers: FETCH_HEADERS,
         signal: AbortSignal.timeout(15000),
       });
-      if (res.ok) return parseSatHtml(await res.text());
-    } catch { /* try next */ }
+      // Diagnóstico temporal — revisar en Vercel → Deployment → Logs para
+      // saber si el SAT está rechazando la IP del servidor (403/empty) o si
+      // es timeout/DNS. Quitar una vez confirmada la causa.
+      if (!res.ok) {
+        console.error(`[doda] SAT respondió no-ok: ${base} → HTTP ${res.status}`);
+        continue;
+      }
+      const html = await res.text();
+      console.error(`[doda] SAT respondió OK: ${base} → ${html.length} bytes`);
+      return parseSatHtml(html);
+    } catch (e) {
+      console.error(`[doda] SAT fetch falló: ${base} →`, e instanceof Error ? e.message : String(e));
+    }
   }
   return null;
 }
